@@ -498,7 +498,7 @@ sub bouncePort {
         return $self->SUPER::bouncePort($ifindex, $mac);
     }
 
-    return $self->_bouncePortCoa($ifindex, $mac, $radiusBounce);
+    return $self->bouncePortRadius($ifindex, $mac, $radiusBounce);
 }
 
 sub handleReAssignVlanTrapForWiredMacAuth {
@@ -506,7 +506,7 @@ sub handleReAssignVlanTrapForWiredMacAuth {
     return $self->bouncePortSNMP($ifIndex, $mac);
 }
 
-sub _bouncePortCoa {
+sub bouncePortRadius {
     my ($self, $ifIndex, $mac, $radiusBounce) = @_;
     my $logger = $self->logger;
     my $id = $self->{_id};
