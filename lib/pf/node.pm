@@ -833,7 +833,7 @@ Get the nodes that should be deleted based on the last_seen column
 =cut
 
 sub node_expire_lastseen {
-    my ($time) = @_;
+    my ($time, $batch) = @_;
     my ( $status, $iter ) = pf::dal::node->search(
         -where => {
             status    => "unreg",
@@ -842,6 +842,7 @@ sub node_expire_lastseen {
                 \['unix_timestamp(last_seen) < (unix_timestamp(now()) - ?)', $time],
             ]
         },
+        -limit => $batch,
         -columns => ['mac', 'tenant_id'],
         -no_auto_tenant_id => 1,
     );
@@ -858,7 +859,7 @@ Get the nodes that should be unregistered based on the last_seen column
 =cut
 
 sub node_unreg_lastseen {
-    my ($time) = @_;
+    my ($time, $batch) = @_;
     my ( $status, $iter ) = pf::dal::node->search(
         -where => {
             status    => { "!=" => "unreg"},
@@ -867,6 +868,7 @@ sub node_unreg_lastseen {
                 \['unix_timestamp(last_seen) < (unix_timestamp(now()) - ?)', $time],
             ]
         },
+        -limit => $batch,
         -columns => ['mac', 'tenant_id'],
         -no_auto_tenant_id => 1,
     );
@@ -884,23 +886,34 @@ Cleanup nodes that should be deleted or unregistered based on the maintenance pa
 
 sub node_cleanup {
     my $timer = pf::StatsD::Timer->new;
-    my ($delete_time, $unreg_time, $include_voip) = @_;
+    my ($delete_time, $unreg_time, $include_voip, $batch, $time_limit) = @_;
     my $logger = get_logger();
     $logger->debug("calling node_cleanup with delete_time=$delete_time unreg_time=$unreg_time");
     
     if ($delete_time ne "0") {
-        foreach my $row ( node_expire_lastseen($delete_time) ) {
-            my $mac = $row->{'mac'};
-            my $tenant_id = $row->{'tenant_id'};
-            my $voip = $row->{'voip'};
-            if (isdisabled($include_voip) && defined $voip && $row->{'voip'} eq $VOIP) {
-                next;
+        my $start_time = time;
+        while (1) {
+            my @nodes = node_expire_lastseen($delete_time, $batch);
+            if (@nodes == 0) {
+                last;
             }
 
-            $logger->info("mac $mac not seen for $delete_time seconds, deleting");
-            require pf::locationlog;
-            pf::locationlog::locationlog_update_end_mac($mac, $tenant_id);
-            node_delete($mac, $tenant_id);
+            foreach my $row ( @nodes) {
+                my $mac = $row->{'mac'};
+                my $tenant_id = $row->{'tenant_id'};
+                my $voip = $row->{'voip'};
+                if (isdisabled($include_voip) && defined $voip && $row->{'voip'} eq $VOIP) {
+                    next;
+                }
+
+                $logger->info("mac $mac not seen for $delete_time seconds, deleting");
+                require pf::locationlog;
+                pf::locationlog::locationlog_update_end_mac($mac, $tenant_id);
+                node_delete($mac, $tenant_id);
+            }
+
+            my $end_time = time;
+            last if (( $end_time - $start_time) > $time_limit );
         }
     } else {
         $logger->debug("Not deleting because the window is 0");
@@ -908,18 +921,27 @@ sub node_cleanup {
 
     if ($unreg_time ne "0") {
         local $pf::dal::CURRENT_TENANT = $pf::dal::CURRENT_TENANT;
-        foreach my $row ( node_unreg_lastseen($unreg_time) ) {
-            my $mac = $row->{'mac'};
-            my $tenant_id = $row->{'tenant_id'};
-            my $voip = $row->{'voip'};
-            if (isdisabled($include_voip) && defined $voip && $row->{'voip'} eq $VOIP) {
-                next;
+        my $start_time = time;
+        while (1) {
+            my @nodes = node_unreg_lastseen($unreg_time, $batch);
+            if (@nodes == 0) {
+                last;
             }
+            foreach my $row ( @nodes) {
+                my $mac = $row->{'mac'};
+                my $tenant_id = $row->{'tenant_id'};
+                my $voip = $row->{'voip'};
+                if (isdisabled($include_voip) && defined $voip && $row->{'voip'} eq $VOIP) {
+                    next;
+                }
 
-            $logger->info("mac $mac not seen for $unreg_time seconds, unregistering");
-            pf::dal->set_tenant($tenant_id);
-            node_deregister($mac);
-            # not reevaluating access since the node is be inactive
+                $logger->info("mac $mac not seen for $unreg_time seconds, unregistering");
+                pf::dal->set_tenant($tenant_id);
+                node_deregister($mac);
+                # not reevaluating access since the node is be inactive
+            }
+            my $end_time = time;
+            last if (( $end_time - $start_time) > $time_limit );
         }
     } else {
         $logger->debug("Not unregistering because the window is 0");
