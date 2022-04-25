@@ -27,8 +27,12 @@ my %ignored_params = (
     },
 );
 
-my @extra_files_to_export = (
+my @extra_files_to_export = qw(
     $pf::file_paths::fingerbank_config_file
+    $pf::file_paths::iptable_input_config_file
+    $pf::file_paths::iptable_input_management_config_file
+    $pf::file_paths::ip6table_input_config_file
+    $pf::file_paths::ip6table_input_management_config_file
 );
 
 
