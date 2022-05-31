@@ -15,6 +15,12 @@ function base_args {
   args="$args -v /usr/local/fingerbank/db:/usr/local/fingerbank/db"
   args="$args -ePF_UID=`id -u pf` -e PF_GID=`id -g pf`"
 
+  # Check to mount /tmp dir
+  if [ -z ${PF_MOUNT_TMP} ]; then
+    args="$args -v /tmp:/tmp"
+  fi
+
+  # check to add env file
   if [ -f /usr/local/pf/var/conf/$name.env ]; then
     args="$args --env-file /usr/local/pf/var/conf/$name.env"
   fi
