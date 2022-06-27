@@ -16,7 +16,7 @@ function base_args {
   args="$args -ePF_UID=`id -u pf` -e PF_GID=`id -g pf`"
 
   # Check to mount /tmp dir
-  if [ -z ${PF_MOUNT_TMP} ]; then
+  if [ "${PF_MOUNT_TMP}" == "yes" ]; then
     args="$args -v /tmp:/tmp"
   fi
 
