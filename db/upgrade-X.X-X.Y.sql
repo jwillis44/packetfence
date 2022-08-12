@@ -738,10 +738,8 @@ ALTER TABLE radius_nas
 ALTER TABLE radreply
     CONVERT TO CHARACTER SET utf8mb4;
 
-\! echo "altering savedsearch"
-ALTER TABLE savedsearch
-    MODIFY query MEDIUMTEXT,
-    CONVERT TO CHARACTER SET utf8mb4;
+\! echo "drop savedsearch"
+DROP TABLE savedsearch;
 
 \! echo "altering scan"
 ALTER TABLE scan
