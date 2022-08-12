@@ -26,7 +26,6 @@ use pf::config qw(
 );
 use pf::constants;
 use pf::locationlog;
-use pf::node;
 use pf::util;
 use pf::security_event;
 use pf::constants::role qw($REJECT_ROLE);
@@ -37,7 +36,8 @@ use pf::config qw(
     $WEBAUTH_WIRELESS
 );
 use pf::Switch::constants;
-
+use pf::util::radius qw(perform_disconnect perform_coa);
+use pf::roles::custom;
 use base ('pf::Switch');
 use pf::SwitchSupports qw(
     ExternalPortal
@@ -158,7 +158,6 @@ sub radiusDisconnect {
         my $roleResolver = pf::roles::custom->instance();
         my $role = $roleResolver->getRoleForNode($mac, $self);
 
-        my $acctsessionid = node_accounting_current_sessionid($mac);
         # transforming MAC to the expected format 00-11-22-33-CA-FE
         $mac = uc($mac);
         $mac =~ s/:/-/g;
