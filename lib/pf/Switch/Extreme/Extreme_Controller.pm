@@ -86,6 +86,25 @@ sub parseExternalPortalRequest {
     return \%params;
 }
 
+=item deauthenticateMacDefault
+
+return Default Deauthentication Default technique
+
+=cut
+
+sub deauthenticateMacDefault {
+    my ( $self, $mac, $is_dot1x ) = @_;
+    my $logger = $self->logger;
+
+    if ( !$self->isProductionMode() ) {
+        $logger->info("not in production mode... we won't perform deauthentication");
+        return 1;
+    }
+
+    $logger->debug("deauthenticate $mac using RADIUS Disconnect-Request deauth method");
+    return $self->radiusDisconnect($mac);
+}
+
 =item returnRoleAttribute
 
 What RADIUS Attribute (usually VSA) should the role returned into.
